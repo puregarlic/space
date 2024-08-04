@@ -1,0 +1,32 @@
+package pages
+
+import "github.com/puregarlic/space/types"
+import "fmt"
+
+templ Home(profileUrl string, posts []*types.Post) {
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <title>Micropub and IndieAuth Server Demo</title>
+      <link rel="authorization_endpoint" href="/authorization">
+      <link rel="token_endpoint" href="/token">
+      <link rel="micropub" href="/micropub">
+
+      <link rel="stylesheet" href="/static/styles.css" />
+    </head>
+    <body>
+      <h1>Micropub and IndieAuth Server Demo</h1>
+
+      <p>Sign in on a website that supports IndieAuth. Use <code>{ profileUrl }</code> as your domain.</p>
+
+      <h2>Posts</h2>
+
+      <p>You can create posts using a Micropub client.</p>
+      <ul>
+      for _, post := range posts {
+        <li><a href={ templ.URL("/posts/" + post.ID) }>{ post.ID }</a> - { fmt.Sprint(post.Properties["content"]) }</li>
+      }
+      </ul>
+    </body>
+  </html>
+}

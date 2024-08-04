@@ -1,0 +1,5 @@
+.env
+
+node_modules
+*_templ.go
+data/**/*.db

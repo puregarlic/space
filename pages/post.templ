@@ -1,0 +1,56 @@
+package pages
+
+import "github.com/puregarlic/space/types"
+import "fmt"
+import "encoding/json"
+import "reflect"
+
+func printProperty(post *types.Post, name string) string {
+  if val, ok := post.Properties[name]; ok {
+    tp := reflect.TypeOf(val)
+    switch tp.Kind() {
+    default:
+      return fmt.Sprint(val)
+    case reflect.Slice:
+      str := ""
+      for _, v := range val {
+        str = str + fmt.Sprint(v)
+      }
+
+      return str
+    }
+   
+  }
+
+  return "<no name provided>"
+}
+
+func printPost(post *types.Post) string {
+  out, err := json.Marshal(post)
+
+  if (err != nil) {
+    panic (err)
+  }
+
+  return fmt.Sprint(string(out))
+}
+
+templ Post(post *types.Post) {
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <title>Post | Micropub and IndieAuth Server Demo</title>
+    </head>
+    <body>
+      <div class={ post.Type }>
+        <h1 class="p-name">{ printProperty(post, "name") }</h1>
+        <p class="p-content">{ printProperty(post, "content") }</p>
+
+        <h3>Stored Microformats</h3>
+        <code>
+          <pre>{ printPost(post) }</pre>
+        </code>
+      </div>
+    </body>
+  </html>
+}
