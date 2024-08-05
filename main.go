@@ -16,6 +16,7 @@ import (
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
 
 	"go.hacdias.com/indielib/indieauth"
@@ -88,6 +89,12 @@ func main() {
 
 	// Micropub handler
 	r.Route("/micropub", func(r chi.Router) {
+		// Enable CORS for browser-based clients
+		r.Use(cors.Handler(
+			cors.Options{
+				AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
+			},
+		))
 		r.Use(s.mustAuth)
 		r.Get("/", s.serveMicropub)
 		r.Post("/", s.serveMicropub)
@@ -108,41 +115,11 @@ type server struct {
 }
 
 func (s *server) serveHomeTemplate(w http.ResponseWriter, r *http.Request) {
-	// q := query.NewQuery(
-	// 	string(db.PostCollection),
-	// ).Sort(query.SortOption{
-	// 	Field:     "createdAt",
-	// 	Direction: -1,
-	// }).Limit(10)
-
-	// docs, err := s.db.Docs.FindAll(q)
-	// if err != nil {
-	// 	httpError(w, http.StatusInternalServerError)
-	// 	panic(err)
-	// }
-
 	posts := make([]*models.Post, 0)
 	result := s.db.Db.Limit(10).Find(&posts)
 	if result.Error != nil {
 		panic(result.Error)
 	}
-
-	// posts := make([]*models.Post, len(docs))
-	// for i, doc := range docs {
-	// 	id := doc.ObjectId()
-	// 	post := &models.Post{
-	// 		ID: id,
-	// 	}
-
-	// 	if err := doc.Unmarshal(post); err != nil {
-	// 		httpError(w, http.StatusInternalServerError)
-	// 		panic(err)
-	// 	}
-
-	// 	post.ID = id
-
-	// 	posts[i] = post
-	// }
 
 	templ.Handler(pages.Home(s.profileURL, posts)).ServeHTTP(w, r)
 }
@@ -151,30 +128,12 @@ func (s *server) servePostTemplate(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "slug")
 	post := &models.Post{}
 
-	// doc, err := s.db.Docs.FindById(string(db.PostCollection), id)
-	// if err != nil {
-	// 	httpError(w, http.StatusInternalServerError)
-	// 	return
-	// } else if doc == nil {
-	// 	httpError(w, http.StatusNotFound)
-	// 	return
-	// }
-
-	// postUlid, err := ulid.ParseString(id)
-	// if err != nil {
-	// 	panic(err)
-	// }
 	result := s.db.Db.First(post, "id = ?", id)
 
 	if result.RowsAffected == 0 {
 		httpError(w, http.StatusNotFound)
 		return
 	}
-
-	// if err := doc.Unmarshal(post); err != nil {
-	// 	httpError(w, http.StatusInternalServerError)
-	// 	return
-	// }
 
 	templ.Handler(pages.Post(post)).ServeHTTP(w, r)
 }
