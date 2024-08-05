@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
+	"os"
 	"time"
 
 	"log"
@@ -26,12 +26,22 @@ import (
 )
 
 func main() {
-	// Setup flags.
-	portPtr := flag.Int("port", 80, "port to listen on")
-	addressPtr := flag.String("profile", "http://localhost/", "client URL and front facing address to listen on")
-	flag.Parse()
+	var port int
+	if portStr, ok := os.LookupEnv("PORT"); !ok {
+		port = 80
+	} else {
+		portInt, err := strconv.Atoi(portStr)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	profileURL := *addressPtr
+		port = portInt
+	}
+
+	profileURL, ok := os.LookupEnv("PROFILE_URL")
+	if !ok {
+		profileURL = "http://localhost/"
+	}
 
 	// Validate the given Client ID before starting the HTTP server.
 	err := indieauth.IsValidProfileURL(profileURL)
@@ -84,9 +94,9 @@ func main() {
 	})
 
 	// Start it!
-	log.Printf("Listening on http://localhost:%d", *portPtr)
+	log.Printf("Listening on http://localhost:%d", port)
 	log.Printf("Listening on %s", profileURL)
-	if err := http.ListenAndServe(":"+strconv.Itoa(*portPtr), r); err != nil {
+	if err := http.ListenAndServe(":"+strconv.Itoa(port), r); err != nil {
 		log.Fatal(err)
 	}
 }
