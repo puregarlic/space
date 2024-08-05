@@ -9,11 +9,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/ostafen/clover/v2/query"
-
 	"github.com/puregarlic/space/db"
+	"github.com/puregarlic/space/models"
 	"github.com/puregarlic/space/pages"
-	"github.com/puregarlic/space/types"
 
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
@@ -100,56 +98,73 @@ type server struct {
 }
 
 func (s *server) serveHomeTemplate(w http.ResponseWriter, r *http.Request) {
-	q := query.NewQuery(
-		string(db.PostCollection),
-	).Sort(query.SortOption{
-		Field:     "createdAt",
-		Direction: -1,
-	}).Limit(10)
+	// q := query.NewQuery(
+	// 	string(db.PostCollection),
+	// ).Sort(query.SortOption{
+	// 	Field:     "createdAt",
+	// 	Direction: -1,
+	// }).Limit(10)
 
-	docs, err := s.db.Docs.FindAll(q)
-	if err != nil {
-		httpError(w, http.StatusInternalServerError)
-		panic(err)
+	// docs, err := s.db.Docs.FindAll(q)
+	// if err != nil {
+	// 	httpError(w, http.StatusInternalServerError)
+	// 	panic(err)
+	// }
+
+	posts := make([]*models.Post, 0)
+	result := s.db.Db.Limit(10).Find(&posts)
+	if result.Error != nil {
+		panic(result.Error)
 	}
 
-	posts := make([]*types.Post, len(docs))
-	for i, doc := range docs {
-		id := doc.ObjectId()
-		post := &types.Post{
-			ID: id,
-		}
+	// posts := make([]*models.Post, len(docs))
+	// for i, doc := range docs {
+	// 	id := doc.ObjectId()
+	// 	post := &models.Post{
+	// 		ID: id,
+	// 	}
 
-		if err := doc.Unmarshal(post); err != nil {
-			httpError(w, http.StatusInternalServerError)
-			panic(err)
-		}
+	// 	if err := doc.Unmarshal(post); err != nil {
+	// 		httpError(w, http.StatusInternalServerError)
+	// 		panic(err)
+	// 	}
 
-		post.ID = id
+	// 	post.ID = id
 
-		posts[i] = post
-	}
+	// 	posts[i] = post
+	// }
 
 	templ.Handler(pages.Home(s.profileURL, posts)).ServeHTTP(w, r)
 }
 
 func (s *server) servePostTemplate(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "slug")
-	post := &types.Post{}
+	post := &models.Post{}
 
-	doc, err := s.db.Docs.FindById(string(db.PostCollection), id)
-	if err != nil {
-		httpError(w, http.StatusInternalServerError)
-		return
-	} else if doc == nil {
+	// doc, err := s.db.Docs.FindById(string(db.PostCollection), id)
+	// if err != nil {
+	// 	httpError(w, http.StatusInternalServerError)
+	// 	return
+	// } else if doc == nil {
+	// 	httpError(w, http.StatusNotFound)
+	// 	return
+	// }
+
+	// postUlid, err := ulid.ParseString(id)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	result := s.db.Db.First(post, "id = ?", id)
+
+	if result.RowsAffected == 0 {
 		httpError(w, http.StatusNotFound)
 		return
 	}
 
-	if err := doc.Unmarshal(post); err != nil {
-		httpError(w, http.StatusInternalServerError)
-		return
-	}
+	// if err := doc.Unmarshal(post); err != nil {
+	// 	httpError(w, http.StatusInternalServerError)
+	// 	return
+	// }
 
 	templ.Handler(pages.Post(post)).ServeHTTP(w, r)
 }

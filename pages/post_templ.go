@@ -8,20 +8,25 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/puregarlic/space/types"
+import "github.com/puregarlic/space/models"
 import "fmt"
 import "encoding/json"
 import "reflect"
 
-func printProperty(post *types.Post, name string) string {
-	if val, ok := post.Properties[name]; ok {
+func printProperty(post *models.Post, name string) string {
+	props := make(map[string]any)
+	if err := json.Unmarshal(post.Properties, &props); err != nil {
+		panic(err)
+	}
+
+	if val, ok := props[name]; ok {
 		tp := reflect.TypeOf(val)
 		switch tp.Kind() {
 		default:
 			return fmt.Sprint(val)
 		case reflect.Slice:
 			str := ""
-			for _, v := range val {
+			for _, v := range val.([]any) {
 				str = str + fmt.Sprint(v)
 			}
 
@@ -33,7 +38,7 @@ func printProperty(post *types.Post, name string) string {
 	return "<no name provided>"
 }
 
-func printPost(post *types.Post) string {
+func printPost(post *models.Post) string {
 	out, err := json.Marshal(post)
 
 	if err != nil {
@@ -43,7 +48,7 @@ func printPost(post *types.Post) string {
 	return fmt.Sprint(string(out))
 }
 
-func Post(post *types.Post) templ.Component {
+func Post(post *models.Post) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -90,7 +95,7 @@ func Post(post *types.Post) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(printProperty(post, "name"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/post.templ`, Line: 46, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/post.templ`, Line: 51, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -103,7 +108,7 @@ func Post(post *types.Post) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(printProperty(post, "content"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/post.templ`, Line: 47, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/post.templ`, Line: 52, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -116,7 +121,7 @@ func Post(post *types.Post) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(printPost(post))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/post.templ`, Line: 51, Col: 32}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/post.templ`, Line: 56, Col: 32}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {

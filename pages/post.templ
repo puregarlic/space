@@ -1,19 +1,24 @@
 package pages
 
-import "github.com/puregarlic/space/types"
+import "github.com/puregarlic/space/models"
 import "fmt"
 import "encoding/json"
 import "reflect"
 
-func printProperty(post *types.Post, name string) string {
-  if val, ok := post.Properties[name]; ok {
+func printProperty(post *models.Post, name string) string {
+  props := make(map[string]any)
+  if err := json.Unmarshal(post.Properties, &props); err != nil {
+    panic(err)
+  }
+  
+  if val, ok := props[name]; ok {
     tp := reflect.TypeOf(val)
     switch tp.Kind() {
     default:
       return fmt.Sprint(val)
     case reflect.Slice:
       str := ""
-      for _, v := range val {
+      for _, v := range val.([]any) {
         str = str + fmt.Sprint(v)
       }
 
@@ -25,7 +30,7 @@ func printProperty(post *types.Post, name string) string {
   return "<no name provided>"
 }
 
-func printPost(post *types.Post) string {
+func printPost(post *models.Post) string {
   out, err := json.Marshal(post)
 
   if (err != nil) {
@@ -35,7 +40,7 @@ func printPost(post *types.Post) string {
   return fmt.Sprint(string(out))
 }
 
-templ Post(post *types.Post) {
+templ Post(post *models.Post) {
   <!DOCTYPE html>
   <html>
     <head>

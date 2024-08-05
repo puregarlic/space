@@ -1,17 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	urlpkg "net/url"
 	"reflect"
 	"strings"
-	"time"
 
-	"github.com/ostafen/clover/v2/document"
-	"github.com/puregarlic/space/db"
-	"github.com/puregarlic/space/types"
+	"github.com/puregarlic/space/models"
 	"github.com/samber/lo"
 
 	"go.hacdias.com/indielib/micropub"
@@ -45,16 +43,13 @@ func (s *micropubImplementation) Source(urlStr string) (map[string]any, error) {
 	}
 
 	id := postIdFromUrlPath(url.Path)
-	post := &types.Post{}
-	doc, err := s.server.db.Docs.FindById(string(db.PostCollection), id)
-	if err != nil {
-		panic(err)
-	} else if doc == nil {
-		return nil, micropub.ErrNotFound
-	}
+	post := &models.Post{}
 
-	if err := doc.Unmarshal(post); err != nil {
-		panic(err)
+	res := s.server.db.Db.Find(post, "id = ?", id)
+	if res.Error != nil {
+		panic(res.Error)
+	} else if res.RowsAffected == 0 {
+		return nil, micropub.ErrNotFound
 	}
 
 	return map[string]any{
@@ -68,22 +63,23 @@ func (s *micropubImplementation) SourceMany(limit, offset int) ([]map[string]any
 }
 
 func (s *micropubImplementation) Create(req *micropub.Request) (string, error) {
-	post := types.Post{
-		Type:       req.Type,
-		Properties: req.Properties,
-		CreatedAt:  time.Now().Unix(),
-	}
-	doc := document.NewDocumentOf(post)
-	if doc == nil {
-		return "", errors.New("Could not marshal post to Clover document")
-	}
-
-	id, err := s.server.db.Docs.InsertOne(string(db.PostCollection), doc)
+	props, err := json.Marshal(req.Properties)
 	if err != nil {
 		return "", err
 	}
 
-	return s.profileURL + "posts/" + id, nil
+	post := &models.Post{
+		ID:         models.NewULID(),
+		Type:       req.Type,
+		Properties: props,
+	}
+
+	res := s.server.db.Db.Create(post)
+	if res.Error != nil {
+		return "", res.Error
+	}
+
+	return s.profileURL + "posts/" + post.ID.String(), nil
 }
 
 func (s *micropubImplementation) Update(req *micropub.Request) (string, error) {
@@ -93,28 +89,23 @@ func (s *micropubImplementation) Update(req *micropub.Request) (string, error) {
 	}
 
 	id := postIdFromUrlPath(url.Path)
+	post := &models.Post{}
 
-	if err := s.server.db.Docs.UpdateById(
-		string(db.PostCollection),
-		id,
-		func(doc *document.Document) *document.Document {
-			post := &types.Post{}
-			if err := doc.Unmarshal(post); err != nil {
-				panic(err)
-			}
-
-			props, err := updateProperties(post.Properties, req)
-			if err != nil {
-				panic(err)
-			}
-
-			doc.Set("properties", props)
-
-			return doc
-		},
-	); err != nil {
-		return "", fmt.Errorf("%w: %w", micropub.ErrBadRequest, err)
+	res := s.server.db.Db.Find(post, "id = ?", id)
+	if res.Error != nil {
+		panic(res.Error)
+	} else if res.RowsAffected != 1 {
+		return "", micropub.ErrNotFound
 	}
+
+	newProps, err := updateProperties(json.RawMessage(post.Properties), req)
+	if err != nil {
+		panic(err)
+	}
+
+	post.Properties = newProps
+
+	s.server.db.Db.Save(post)
 
 	return s.profileURL + url.Path, nil
 }
@@ -127,20 +118,41 @@ func (s *micropubImplementation) Delete(urlStr string) error {
 
 	id := postIdFromUrlPath(url.Path)
 
-	if err := s.server.db.Docs.DeleteById(string(db.PostCollection), id); err != nil {
-		return fmt.Errorf("%w: %w", micropub.ErrBadRequest, err)
+	res := s.server.db.Db.Delete(&models.Post{}, "id = ?", id)
+	if res.Error != nil {
+		panic(res.Error)
+	} else if res.RowsAffected == 0 {
+		return fmt.Errorf("%w: %w", micropub.ErrNotFound, err)
 	}
 
 	return nil
 }
 
-func (s *micropubImplementation) Undelete(url string) error {
-	return micropub.ErrNotImplemented
+func (s *micropubImplementation) Undelete(urlStr string) error {
+	url, err := urlpkg.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("%w: %w", micropub.ErrBadRequest, err)
+	}
+
+	id := postIdFromUrlPath(url.Path)
+	res := s.server.db.Db.Unscoped().Model(&models.Post{}).Where("id = ?", id).Update("deleted_at", nil)
+	if res.Error != nil {
+		return res.Error
+	} else if res.RowsAffected != 1 {
+		return micropub.ErrNotFound
+	}
+
+	return nil
 }
 
 // updateProperties applies the updates (additions, deletions, replacements)
 // in the given [micropub.Request] to a set of existing microformats properties.
-func updateProperties(properties map[string][]any, req *micropub.Request) (map[string][]any, error) {
+func updateProperties(props json.RawMessage, req *micropub.Request) ([]byte, error) {
+	properties := make(map[string][]any)
+	if err := json.Unmarshal(props, &properties); err != nil {
+		panic(err)
+	}
+
 	if req.Updates.Replace != nil {
 		for key, value := range req.Updates.Replace {
 			properties[key] = value
@@ -208,5 +220,10 @@ func updateProperties(properties map[string][]any, req *micropub.Request) (map[s
 		}
 	}
 
-	return properties, nil
+	propJson, err := json.Marshal(&properties)
+	if err != nil {
+		panic(err)
+	}
+
+	return propJson, nil
 }

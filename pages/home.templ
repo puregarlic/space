@@ -1,9 +1,19 @@
 package pages
 
-import "github.com/puregarlic/space/types"
+import "github.com/puregarlic/space/models"
 import "fmt"
+import "encoding/json"
 
-templ Home(profileUrl string, posts []*types.Post) {
+func getPostPropertyValue(post *models.Post, name string) any {
+  props := make(map[string]any)
+  if err := json.Unmarshal(post.Properties, &props); err != nil {
+    panic(err)
+  }
+
+  return props[name]
+}
+
+templ Home(profileUrl string, posts []*models.Post) {
   <!DOCTYPE html>
   <html>
     <head>
@@ -24,7 +34,7 @@ templ Home(profileUrl string, posts []*types.Post) {
       <p>You can create posts using a Micropub client.</p>
       <ul>
       for _, post := range posts {
-        <li><a href={ templ.URL("/posts/" + post.ID) }>{ post.ID }</a> - { fmt.Sprint(post.Properties["content"]) }</li>
+        <li><a href={ templ.URL("/posts/" + post.ID.String()) }>{ post.ID.String() }</a> - { fmt.Sprint(getPostPropertyValue(post, "content")) }</li>
       }
       </ul>
     </body>
