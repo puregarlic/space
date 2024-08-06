@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -118,14 +119,20 @@ func main() {
 					},
 				}
 			}),
-			micropub.WithMediaEndpoint(s.profileURL+"/micropub/media"),
+			micropub.WithMediaEndpoint(s.profileURL+"micropub/media"),
 		)
 
 		r.Get("/", mpHandler.ServeHTTP)
 		r.Post("/", mpHandler.ServeHTTP)
 		r.Post("/media", micropub.NewMediaHandler(
 			mp.HandleMediaUpload,
-			mp.HasScope,
+			func(r *http.Request, scope string) bool {
+				// IndieKit checks for a `media` scope, not commonly requested
+				hasMediaScope := mp.HasScope(r, scope)
+				hasCreateScope := mp.HasScope(r, "create")
+
+				return hasMediaScope || hasCreateScope
+			},
 		).ServeHTTP)
 	})
 
@@ -170,7 +177,7 @@ func (s *server) servePostTemplate(w http.ResponseWriter, r *http.Request) {
 func (s *server) serveMedia(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/")
 
-	res, err := s.db.Media.GetObject(r.Context(), &s3.GetObjectInput{
+	res, err := s.db.Media.GetObject(context.TODO(), &s3.GetObjectInput{
 		Bucket: aws.String(os.Getenv("AWS_S3_BUCKET_NAME")),
 		Key:    &key,
 	})

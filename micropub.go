@@ -74,6 +74,10 @@ func (s *micropubImplementation) HandleMediaUpload(file multipart.File, header *
 	defer file.Close()
 
 	kind, err := filetype.MatchReader(file)
+	if _, err := file.Seek(0, 0); err != nil {
+		return "", fmt.Errorf("%w: %w", errors.New("failed to reset cursor"), err)
+	}
+
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", errors.New("failed to upload"), err)
 	}
