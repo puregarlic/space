@@ -1,15 +1,23 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	urlpkg "net/url"
+	"os"
 	"reflect"
 	"strings"
 
 	"github.com/puregarlic/space/models"
+
+	"github.com/aidarkhanov/nanoid"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/h2non/filetype"
 	"github.com/samber/lo"
 
 	"go.hacdias.com/indielib/micropub"
@@ -60,6 +68,27 @@ func (s *micropubImplementation) Source(urlStr string) (map[string]any, error) {
 
 func (s *micropubImplementation) SourceMany(limit, offset int) ([]map[string]any, error) {
 	return nil, micropub.ErrNotImplemented
+}
+
+func (s *micropubImplementation) HandleMediaUpload(file multipart.File, header *multipart.FileHeader) (string, error) {
+	defer file.Close()
+
+	kind, err := filetype.MatchReader(file)
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", errors.New("failed to upload"), err)
+	}
+
+	key := fmt.Sprintf("media/%s.%s", nanoid.New(), kind.Extension)
+	_, err = s.db.Media.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket: aws.String(os.Getenv("AWS_S3_BUCKET_NAME")),
+		Key:    &key,
+		Body:   file,
+	})
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", errors.New("failed to upload"), err)
+	}
+
+	return s.profileURL + key, nil
 }
 
 func (s *micropubImplementation) Create(req *micropub.Request) (string, error) {

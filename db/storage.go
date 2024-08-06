@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,11 +14,16 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 type Storage struct {
 	Db            *gorm.DB
 	Authorization *ttlcache.Cache[string, *indieauth.AuthenticationRequest]
+	Media         *s3.Client
 }
 
 type CollectionName string
@@ -41,6 +47,17 @@ func NewStorage() *Storage {
 		panic(err)
 	}
 
+	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		log.Printf("Couldn't load default configuration. Here's why: %v\n", err)
+		panic(err)
+	}
+
+	svc := s3.NewFromConfig(sdkConfig, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String("https://" + os.Getenv("AWS_S3_ENDPOINT"))
+		o.Region = os.Getenv("AWS_REGION")
+	})
+
 	cache := ttlcache.New[string, *indieauth.AuthenticationRequest](
 		ttlcache.WithTTL[string, *indieauth.AuthenticationRequest](10 * time.Minute),
 	)
@@ -48,9 +65,9 @@ func NewStorage() *Storage {
 	go cache.Start()
 
 	store := &Storage{
-		// Docs:          c,
 		Db:            db,
 		Authorization: cache,
+		Media:         svc,
 	}
 
 	return store

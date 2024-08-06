@@ -2,13 +2,18 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"os"
+	"strings"
 	"time"
 
 	"log"
 	"net/http"
 	"strconv"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/puregarlic/space/db"
 	"github.com/puregarlic/space/models"
 	"github.com/puregarlic/space/pages"
@@ -76,6 +81,7 @@ func main() {
 	// Pages
 	r.Get("/", s.serveHomeTemplate)
 	r.Get("/posts/{slug}", s.servePostTemplate)
+	r.Get("/media/*", s.serveMedia)
 
 	// IndieAuth handlers
 	r.Group(func(r chi.Router) {
@@ -96,8 +102,31 @@ func main() {
 			},
 		))
 		r.Use(s.mustAuth)
-		r.Get("/", s.serveMicropub)
-		r.Post("/", s.serveMicropub)
+
+		mp := &micropubImplementation{s}
+		mpHandler := micropub.NewHandler(
+			mp,
+			micropub.WithGetPostTypes(func() []micropub.PostType {
+				return []micropub.PostType{
+					{
+						Name: "Post",
+						Type: string(microformats.TypeNote),
+					},
+					{
+						Name: "Photo",
+						Type: string(microformats.TypePhoto),
+					},
+				}
+			}),
+			micropub.WithMediaEndpoint(s.profileURL+"/micropub/media"),
+		)
+
+		r.Get("/", mpHandler.ServeHTTP)
+		r.Post("/", mpHandler.ServeHTTP)
+		r.Post("/media", micropub.NewMediaHandler(
+			mp.HandleMediaUpload,
+			mp.HasScope,
+		).ServeHTTP)
 	})
 
 	// Start it!
@@ -138,18 +167,28 @@ func (s *server) servePostTemplate(w http.ResponseWriter, r *http.Request) {
 	templ.Handler(pages.Post(post)).ServeHTTP(w, r)
 }
 
-func (s *server) serveMicropub(w http.ResponseWriter, r *http.Request) {
-	micropub.NewHandler(
-		&micropubImplementation{s},
-		micropub.WithGetPostTypes(func() []micropub.PostType {
-			return []micropub.PostType{
-				{
-					Name: "Post",
-					Type: string(microformats.TypeNote),
-				},
-			}
-		}),
-	).ServeHTTP(w, r)
+func (s *server) serveMedia(w http.ResponseWriter, r *http.Request) {
+	key := strings.TrimPrefix(r.URL.Path, "/")
+
+	res, err := s.db.Media.GetObject(r.Context(), &s3.GetObjectInput{
+		Bucket: aws.String(os.Getenv("AWS_S3_BUCKET_NAME")),
+		Key:    &key,
+	})
+	if err != nil {
+		fmt.Println("failed to get object", err)
+		httpError(w, http.StatusInternalServerError)
+		return
+	}
+
+	defer res.Body.Close()
+
+	w.Header().Set("Cache-Control", "604800")
+
+	if _, err := io.Copy(w, res.Body); err != nil {
+		fmt.Println("failed to send object", err)
+		httpError(w, http.StatusInternalServerError)
+		return
+	}
 }
 
 func httpError(w http.ResponseWriter, status int) {
