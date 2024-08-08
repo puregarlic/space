@@ -13,7 +13,7 @@ func getPostPropertyValue(post *models.Post, name string) any {
   return props[name]
 }
 
-templ Home(profileUrl string, posts []*models.Post) {
+templ Home(posts []*models.Post) {
   <!DOCTYPE html>
   <html>
     <head>
@@ -26,8 +26,6 @@ templ Home(profileUrl string, posts []*models.Post) {
     </head>
     <body>
       <h1>Micropub and IndieAuth Server Demo</h1>
-
-      <p>Sign in on a website that supports IndieAuth. Use <code>{ profileUrl }</code> as your domain.</p>
 
       <h2>Posts</h2>
 

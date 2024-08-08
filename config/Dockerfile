@@ -1,14 +1,10 @@
 # Build styles
-FROM node:22 AS build-styles
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
+FROM denoland/deno:1.45.5 AS build-styles
 WORKDIR /app
 
 COPY . /app
 
-RUN corepack enable pnpm
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
-RUN pnpm run build
+RUN deno run --allow-all npm:tailwindcss -o static/styles.css -c config/tailwind.config.js --minify
 
 FROM golang:1.22-alpine AS build-server
 WORKDIR /app
@@ -34,12 +30,9 @@ COPY --from=build-server /usr/local/bin/litestream /usr/local/bin/litestream
 RUN apk add bash
 RUN mkdir -p /data
 
-COPY etc/litestream.yml /etc/litestream.yml
-COPY scripts/run.sh /scripts/run.sh
-
 EXPOSE 80
 
-COPY etc/litestream.yml /etc/litestream.yml
+COPY config/litestream.yml /etc/litestream.yml
 COPY scripts/run.sh /scripts/run.sh
 
 CMD [ "/scripts/run.sh" ]

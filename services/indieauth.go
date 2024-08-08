@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"context"
@@ -11,7 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/puregarlic/space/handlers"
 	"github.com/puregarlic/space/pages"
+	"github.com/puregarlic/space/storage"
 
 	"github.com/a-h/templ"
 	"github.com/aidarkhanov/nanoid"
@@ -19,12 +21,17 @@ import (
 	"go.hacdias.com/indielib/indieauth"
 )
 
+type IndieAuth struct {
+	ProfileURL string
+	Server     *indieauth.Server
+}
+
 // storeAuthorization stores the authorization request and returns a code for it.
 // Something such as JWT tokens could be used in a production environment.
-func (s *server) storeAuthorization(req *indieauth.AuthenticationRequest) string {
+func (i *IndieAuth) storeAuthorization(req *indieauth.AuthenticationRequest) string {
 	code := nanoid.New()
 
-	s.db.Authorization.Set(code, req, 0)
+	storage.AuthCache().Set(code, req, 0)
 
 	return code
 }
@@ -40,23 +47,23 @@ const (
 	scopesContextKey contextKey = "scopes"
 )
 
-// authorizationGetHandler handles the GET method for the authorization endpoint.
-func (s *server) authorizationGetHandler(w http.ResponseWriter, r *http.Request) {
+// HandleAuthGET handles the GET method for the authorization endpoint.
+func (i *IndieAuth) HandleAuthGET(w http.ResponseWriter, r *http.Request) {
 	// In a production server, this page would usually be protected. In order for
 	// the user to authorize this request, they must be authenticated. This could
 	// be done in different ways: username/password, passkeys, etc.
 
 	// Parse the authorization request.
-	req, err := s.ias.ParseAuthorization(r)
+	req, err := i.Server.ParseAuthorization(r)
 	if err != nil {
-		serveErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
 	// Do a best effort attempt at fetching more information about the application
 	// that we can show to the user. Not all applications provide this sort of
 	// information.
-	app, _ := s.ias.DiscoverApplicationMetadata(r.Context(), req.ClientID)
+	app, _ := i.Server.DiscoverApplicationMetadata(r.Context(), req.ClientID)
 
 	// Here, we just display a small HTML document where the user has to press
 	// to authorize this request. Please note that this template contains a form
@@ -65,16 +72,16 @@ func (s *server) authorizationGetHandler(w http.ResponseWriter, r *http.Request)
 	templ.Handler(pages.Auth(req, app)).ServeHTTP(w, r)
 }
 
-// authorizationPostHandler handles the POST method for the authorization endpoint.
-func (s *server) authorizationPostHandler(w http.ResponseWriter, r *http.Request) {
-	s.authorizationCodeExchange(w, r, false)
+// HandleAuthPOST handles the POST method for the authorization endpoint.
+func (i *IndieAuth) HandleAuthPOST(w http.ResponseWriter, r *http.Request) {
+	i.authorizationCodeExchange(w, r, false)
 }
 
-// tokenHandler handles the token endpoint. In our case, we only accept the default
+// HandleToken handles the token endpoint. In our case, we only accept the default
 // type which is exchanging an authorization code for a token.
-func (s *server) tokenHandler(w http.ResponseWriter, r *http.Request) {
+func (i *IndieAuth) HandleToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		httpError(w, http.StatusMethodNotAllowed)
+		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -85,7 +92,7 @@ func (s *server) tokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.authorizationCodeExchange(w, r, true)
+	i.authorizationCodeExchange(w, r, true)
 }
 
 type tokenResponse struct {
@@ -99,28 +106,28 @@ type tokenResponse struct {
 // authorizationCodeExchange handles the authorization code exchange. It is used by
 // both the authorization handler to exchange the code for the user's profile URL,
 // and by the token endpoint, to exchange the code by a token.
-func (s *server) authorizationCodeExchange(w http.ResponseWriter, r *http.Request, withToken bool) {
+func (i *IndieAuth) authorizationCodeExchange(w http.ResponseWriter, r *http.Request, withToken bool) {
 	if err := r.ParseForm(); err != nil {
-		serveErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
+		handlers.SendErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
 	// t := s.getAuthorization(r.Form.Get("code"))
-	req, present := s.db.Authorization.GetAndDelete(r.Form.Get("code"))
+	req, present := storage.AuthCache().GetAndDelete(r.Form.Get("code"))
 	if !present {
-		serveErrorJSON(w, http.StatusBadRequest, "invalid_request", "invalid authorization")
+		handlers.SendErrorJSON(w, http.StatusBadRequest, "invalid_request", "invalid authorization")
 		return
 	}
 	authRequest := req.Value()
 
-	err := s.ias.ValidateTokenExchange(authRequest, r)
+	err := i.Server.ValidateTokenExchange(authRequest, r)
 	if err != nil {
-		serveErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
+		handlers.SendErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
 	response := &tokenResponse{
-		Me: s.profileURL,
+		Me: i.ProfileURL,
 	}
 
 	scopes := authRequest.Scopes
@@ -152,22 +159,22 @@ func (s *server) authorizationCodeExchange(w http.ResponseWriter, r *http.Reques
 
 	// An actual server may want to include the "profile" in the response if the
 	// scope "profile" is included.
-	serveJSON(w, http.StatusOK, response)
+	handlers.SendJSON(w, http.StatusOK, response)
 }
 
-func (s *server) authorizationAcceptHandler(w http.ResponseWriter, r *http.Request) {
+func (i *IndieAuth) HandleAuthApproval(w http.ResponseWriter, r *http.Request) {
 	// Parse authorization information. This only works because our authorization page
 	// includes all the required information. This can be done in other ways: database,
 	// whether temporary or not, cookies, etc.
-	req, err := s.ias.ParseAuthorization(r)
+	req, err := i.Server.ParseAuthorization(r)
 	if err != nil {
-		serveErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
+		handlers.SendErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
 	// Generate a random code and persist the information associated to that code.
 	// You could do this in other ways: database, or JWT tokens, or both, for example.
-	code := s.storeAuthorization(req)
+	code := i.storeAuthorization(req)
 
 	// Redirect to client callback.
 	query := url.Values{}
@@ -176,16 +183,16 @@ func (s *server) authorizationAcceptHandler(w http.ResponseWriter, r *http.Reque
 	http.Redirect(w, r, req.RedirectURI+"?"+query.Encode(), http.StatusFound)
 }
 
-// mustAuth is a middleware to ensure that the request is authorized. The way this
+// MustAuth is a middleware to ensure that the request is authorized. The way this
 // works depends on the implementation. It then stores the scopes in the context.
-func (s *server) mustAuth(next http.Handler) http.Handler {
+func MustAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := r.Header.Get("Authorization")
 		tokenStr = strings.TrimPrefix(tokenStr, "Bearer")
 		tokenStr = strings.TrimSpace(tokenStr)
 
 		if len(tokenStr) <= 0 {
-			serveErrorJSON(w, http.StatusUnauthorized, "invalid_request", "no credentials")
+			handlers.SendErrorJSON(w, http.StatusUnauthorized, "invalid_request", "no credentials")
 			return
 		}
 
@@ -194,20 +201,20 @@ func (s *server) mustAuth(next http.Handler) http.Handler {
 		})
 
 		if err != nil {
-			serveErrorJSON(w, http.StatusUnauthorized, "invalid_request", "invalid token")
+			handlers.SendErrorJSON(w, http.StatusUnauthorized, "invalid_request", "invalid token")
 			return
 		} else if claims, ok := token.Claims.(*CustomTokenClaims); ok {
 			ctx := context.WithValue(r.Context(), scopesContextKey, claims.Scopes)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		} else {
-			serveErrorJSON(w, http.StatusUnauthorized, "invalid_request", "malformed claims")
+			handlers.SendErrorJSON(w, http.StatusUnauthorized, "invalid_request", "malformed claims")
 			return
 		}
 	})
 }
 
-func (s *server) mustBasicAuth(next http.Handler) http.Handler {
+func MustBasicAuth(next http.Handler) http.Handler {
 	user, ok := os.LookupEnv("ADMIN_USERNAME")
 	if !ok {
 		panic(errors.New("ADMIN_USERNAME is not set, cannot start"))

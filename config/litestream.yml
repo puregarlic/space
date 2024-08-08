@@ -1,7 +1,6 @@
 dbs:
   - path: /data/data.db
     replicas:
-      # - url: ${REPLICA_URL}
       - type: s3
         bucket: ${AWS_S3_BUCKET_NAME}
         endpoint: ${AWS_S3_ENDPOINT}

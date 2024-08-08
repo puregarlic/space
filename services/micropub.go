@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/puregarlic/space/models"
+	"github.com/puregarlic/space/storage"
 
 	"github.com/aidarkhanov/nanoid"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -23,15 +24,15 @@ import (
 	"go.hacdias.com/indielib/micropub"
 )
 
-type micropubImplementation struct {
-	*server
+type Micropub struct {
+	ProfileURL string
 }
 
 func postIdFromUrlPath(path string) string {
 	return strings.TrimPrefix(path, "/posts/")
 }
 
-func (s *micropubImplementation) HasScope(r *http.Request, scope string) bool {
+func (m *Micropub) HasScope(r *http.Request, scope string) bool {
 	v := r.Context().Value(scopesContextKey)
 	if scopes, ok := v.([]string); ok {
 		for _, sc := range scopes {
@@ -44,7 +45,7 @@ func (s *micropubImplementation) HasScope(r *http.Request, scope string) bool {
 	return false
 }
 
-func (s *micropubImplementation) Source(urlStr string) (map[string]any, error) {
+func (m *Micropub) Source(urlStr string) (map[string]any, error) {
 	url, err := urlpkg.Parse(urlStr)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", micropub.ErrBadRequest, err)
@@ -53,7 +54,7 @@ func (s *micropubImplementation) Source(urlStr string) (map[string]any, error) {
 	id := postIdFromUrlPath(url.Path)
 	post := &models.Post{}
 
-	res := s.server.db.Db.Find(post, "id = ?", id)
+	res := storage.GORM().Find(post, "id = ?", id)
 	if res.Error != nil {
 		panic(res.Error)
 	} else if res.RowsAffected == 0 {
@@ -66,11 +67,11 @@ func (s *micropubImplementation) Source(urlStr string) (map[string]any, error) {
 	}, nil
 }
 
-func (s *micropubImplementation) SourceMany(limit, offset int) ([]map[string]any, error) {
+func (m *Micropub) SourceMany(limit, offset int) ([]map[string]any, error) {
 	return nil, micropub.ErrNotImplemented
 }
 
-func (s *micropubImplementation) HandleMediaUpload(file multipart.File, header *multipart.FileHeader) (string, error) {
+func (m *Micropub) HandleMediaUpload(file multipart.File, header *multipart.FileHeader) (string, error) {
 	defer file.Close()
 
 	kind, err := filetype.MatchReader(file)
@@ -83,7 +84,7 @@ func (s *micropubImplementation) HandleMediaUpload(file multipart.File, header *
 	}
 
 	key := fmt.Sprintf("media/%s.%s", nanoid.New(), kind.Extension)
-	_, err = s.db.Media.PutObject(context.TODO(), &s3.PutObjectInput{
+	_, err = storage.S3().PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(os.Getenv("AWS_S3_BUCKET_NAME")),
 		Key:    &key,
 		Body:   file,
@@ -92,10 +93,10 @@ func (s *micropubImplementation) HandleMediaUpload(file multipart.File, header *
 		return "", fmt.Errorf("%w: %w", errors.New("failed to upload"), err)
 	}
 
-	return s.profileURL + key, nil
+	return m.ProfileURL + key, nil
 }
 
-func (s *micropubImplementation) Create(req *micropub.Request) (string, error) {
+func (m *Micropub) Create(req *micropub.Request) (string, error) {
 	props, err := json.Marshal(req.Properties)
 	if err != nil {
 		return "", err
@@ -107,15 +108,15 @@ func (s *micropubImplementation) Create(req *micropub.Request) (string, error) {
 		Properties: props,
 	}
 
-	res := s.server.db.Db.Create(post)
+	res := storage.GORM().Create(post)
 	if res.Error != nil {
 		return "", res.Error
 	}
 
-	return s.profileURL + "posts/" + post.ID.String(), nil
+	return m.ProfileURL + "posts/" + post.ID.String(), nil
 }
 
-func (s *micropubImplementation) Update(req *micropub.Request) (string, error) {
+func (m *Micropub) Update(req *micropub.Request) (string, error) {
 	url, err := urlpkg.Parse(req.URL)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", micropub.ErrBadRequest, err)
@@ -124,7 +125,7 @@ func (s *micropubImplementation) Update(req *micropub.Request) (string, error) {
 	id := postIdFromUrlPath(url.Path)
 	post := &models.Post{}
 
-	res := s.server.db.Db.Find(post, "id = ?", id)
+	res := storage.GORM().Find(post, "id = ?", id)
 	if res.Error != nil {
 		panic(res.Error)
 	} else if res.RowsAffected != 1 {
@@ -138,12 +139,12 @@ func (s *micropubImplementation) Update(req *micropub.Request) (string, error) {
 
 	post.Properties = newProps
 
-	s.server.db.Db.Save(post)
+	storage.GORM().Save(post)
 
-	return s.profileURL + url.Path, nil
+	return url.String(), nil
 }
 
-func (s *micropubImplementation) Delete(urlStr string) error {
+func (m *Micropub) Delete(urlStr string) error {
 	url, err := urlpkg.Parse(urlStr)
 	if err != nil {
 		return fmt.Errorf("%w: %w", micropub.ErrBadRequest, err)
@@ -151,7 +152,7 @@ func (s *micropubImplementation) Delete(urlStr string) error {
 
 	id := postIdFromUrlPath(url.Path)
 
-	res := s.server.db.Db.Delete(&models.Post{}, "id = ?", id)
+	res := storage.GORM().Delete(&models.Post{}, "id = ?", id)
 	if res.Error != nil {
 		panic(res.Error)
 	} else if res.RowsAffected == 0 {
@@ -161,14 +162,14 @@ func (s *micropubImplementation) Delete(urlStr string) error {
 	return nil
 }
 
-func (s *micropubImplementation) Undelete(urlStr string) error {
+func (m *Micropub) Undelete(urlStr string) error {
 	url, err := urlpkg.Parse(urlStr)
 	if err != nil {
 		return fmt.Errorf("%w: %w", micropub.ErrBadRequest, err)
 	}
 
 	id := postIdFromUrlPath(url.Path)
-	res := s.server.db.Db.Unscoped().Model(&models.Post{}).Where("id = ?", id).Update("deleted_at", nil)
+	res := storage.GORM().Unscoped().Model(&models.Post{}).Where("id = ?", id).Update("deleted_at", nil)
 	if res.Error != nil {
 		return res.Error
 	} else if res.RowsAffected != 1 {
