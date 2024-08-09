@@ -3,11 +3,12 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 	"github.com/puregarlic/space/models"
-	"github.com/puregarlic/space/pages"
 	"github.com/puregarlic/space/storage"
+
+	"github.com/puregarlic/space/html/layouts"
+	"github.com/puregarlic/space/html/pages"
 )
 
 func ServeHomePage(w http.ResponseWriter, r *http.Request) {
@@ -17,7 +18,7 @@ func ServeHomePage(w http.ResponseWriter, r *http.Request) {
 		panic(result.Error)
 	}
 
-	templ.Handler(pages.Home(posts)).ServeHTTP(w, r)
+	layouts.RenderDefault(pages.Home(posts)).ServeHTTP(w, r)
 }
 
 func ServePostPage(w http.ResponseWriter, r *http.Request) {
@@ -27,9 +28,9 @@ func ServePostPage(w http.ResponseWriter, r *http.Request) {
 	result := storage.GORM().First(post, "id = ?", id)
 
 	if result.RowsAffected == 0 {
-		SendHttpError(w, http.StatusNotFound)
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
 
-	templ.Handler(pages.Post(post)).ServeHTTP(w, r)
+	layouts.RenderDefault(pages.Post(post)).ServeHTTP(w, r)
 }

@@ -12,7 +12,6 @@ import (
 	"strconv"
 
 	"github.com/puregarlic/space/handlers"
-	"github.com/puregarlic/space/services"
 	"github.com/puregarlic/space/storage"
 
 	"github.com/go-chi/chi/v5"
@@ -21,13 +20,49 @@ import (
 	"github.com/go-chi/httprate"
 
 	"go.hacdias.com/indielib/indieauth"
-	"go.hacdias.com/indielib/microformats"
-	"go.hacdias.com/indielib/micropub"
 
 	_ "github.com/joho/godotenv/autoload"
 )
 
 func main() {
+	port, profileURL := validateRuntimeConfiguration()
+	defer storage.CleanupAuthCache()
+
+	r := chi.NewRouter()
+
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(httprate.LimitByIP(100, 1*time.Minute))
+
+	// CORS be enabled for browser-based agents to fetch `rel` elements.
+	// We'll enable it just on the root route since it should be used as the profile URL
+	r.With(cors.AllowAll().Handler).Get("/", handlers.ServeHomePage)
+
+	// Content pages
+	r.Get("/posts/{slug}", handlers.ServePostPage)
+
+	// Static asset handlers
+	r.Get("/media/*", handlers.ServeMedia)
+	r.Get("/static/*", http.StripPrefix(
+		"/static",
+		http.FileServer(http.Dir("static")),
+	).ServeHTTP)
+
+	// Service handlers
+	handlers.AttachIndieAuth(r, "/authorization", profileURL)
+	handlers.AttachMicropub(r, "/micropub", profileURL)
+
+	// Start it!
+	log.Printf("Listening on http://localhost:%d", port)
+	log.Printf("Listening on %s", profileURL)
+	if err := http.ListenAndServe(":"+strconv.Itoa(port), r); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func validateRuntimeConfiguration() (portNumber int, profileURL string) {
 	var port int
 	if portStr, ok := os.LookupEnv("PORT"); !ok {
 		port = 80
@@ -51,87 +86,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	defer storage.CleanupAuthCache()
-
-	r := chi.NewRouter()
-
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(httprate.LimitByIP(100, 1*time.Minute))
-
-	// Static resources
-	r.Get("/static/*", http.StripPrefix("/static", http.FileServer(http.Dir("static"))).ServeHTTP)
-
-	// Pages
-	r.Get("/", handlers.ServeHomePage)
-	r.Get("/posts/{slug}", handlers.ServePostPage)
-	r.Get("/media/*", handlers.ServeMedia)
-
-	// IndieAuth handlers
-	r.Group(func(r chi.Router) {
-		ias := &services.IndieAuth{
-			ProfileURL: profileURL,
-			Server:     indieauth.NewServer(true, nil),
-		}
-
-		r.Post("/token", ias.HandleToken)
-		r.Post("/authorization", ias.HandleAuthPOST)
-		r.Post("/authorization/accept", ias.HandleAuthApproval)
-
-		// User authentication portal
-		r.With(services.MustBasicAuth).Get("/authorization", ias.HandleAuthGET)
-	})
-
-	// Micropub handler
-	r.Route("/micropub", func(r chi.Router) {
-		// Enable CORS for browser-based clients
-		r.Use(cors.Handler(
-			cors.Options{
-				AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
-			},
-		))
-		r.Use(services.MustAuth)
-
-		mp := &services.Micropub{
-			ProfileURL: profileURL,
-		}
-		mpHandler := micropub.NewHandler(
-			mp,
-			micropub.WithGetPostTypes(func() []micropub.PostType {
-				return []micropub.PostType{
-					{
-						Name: "Post",
-						Type: string(microformats.TypeNote),
-					},
-					{
-						Name: "Photo",
-						Type: string(microformats.TypePhoto),
-					},
-				}
-			}),
-			micropub.WithMediaEndpoint(profileURL+"micropub/media"),
-		)
-
-		r.Get("/", mpHandler.ServeHTTP)
-		r.Post("/", mpHandler.ServeHTTP)
-		r.Post("/media", micropub.NewMediaHandler(
-			mp.HandleMediaUpload,
-			func(r *http.Request, scope string) bool {
-				// IndieKit checks for a `media` scope, not commonly requested
-				hasMediaScope := mp.HasScope(r, scope)
-				hasCreateScope := mp.HasScope(r, "create")
-
-				return hasMediaScope || hasCreateScope
-			},
-		).ServeHTTP)
-	})
-
-	// Start it!
-	log.Printf("Listening on http://localhost:%d", port)
-	log.Printf("Listening on %s", profileURL)
-	if err := http.ListenAndServe(":"+strconv.Itoa(port), r); err != nil {
-		log.Fatal(err)
-	}
+	return port, profileURL
 }

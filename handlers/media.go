@@ -21,8 +21,7 @@ func ServeMedia(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		fmt.Println("failed to get object", err)
-		SendHttpError(w, http.StatusInternalServerError)
-		return
+		panic(err)
 	}
 
 	defer res.Body.Close()
@@ -31,7 +30,6 @@ func ServeMedia(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := io.Copy(w, res.Body); err != nil {
 		fmt.Println("failed to send object", err)
-		SendHttpError(w, http.StatusInternalServerError)
-		return
+		panic(err)
 	}
 }

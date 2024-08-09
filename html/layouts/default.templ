@@ -1,0 +1,29 @@
+package layouts
+
+import "net/http"
+import "github.com/puregarlic/space/storage"
+
+func RenderDefault(page templ.Component) http.Handler {
+  rels := storage.GetRels()
+  document := Default(page, rels)
+
+  return templ.Handler(document)
+}
+
+templ Default(body templ.Component, rels []*storage.RelEntry) {
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <title>Micropub and IndieAuth Server Demo</title>
+
+      for _, rel := range rels {
+        <link rel={ rel.Name } href={ rel.HREF } />
+      }
+
+      <link rel="stylesheet" href="/static/styles.css" />
+    </head>
+    <body>
+      @body
+    </body>
+  </html>
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -11,11 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/puregarlic/space/handlers"
-	"github.com/puregarlic/space/pages"
+	"github.com/puregarlic/space/html/layouts"
+	"github.com/puregarlic/space/html/pages"
 	"github.com/puregarlic/space/storage"
 
-	"github.com/a-h/templ"
 	"github.com/aidarkhanov/nanoid"
 	"github.com/golang-jwt/jwt/v5"
 	"go.hacdias.com/indielib/indieauth"
@@ -69,7 +69,7 @@ func (i *IndieAuth) HandleAuthGET(w http.ResponseWriter, r *http.Request) {
 	// to authorize this request. Please note that this template contains a form
 	// where we dump all the request information. This makes it possible to reuse
 	// [indieauth.Server.ParseAuthorization] when the user authorizes the request.
-	templ.Handler(pages.Auth(req, app)).ServeHTTP(w, r)
+	layouts.RenderDefault(pages.Auth(req, app)).ServeHTTP(w, r)
 }
 
 // HandleAuthPOST handles the POST method for the authorization endpoint.
@@ -108,21 +108,21 @@ type tokenResponse struct {
 // and by the token endpoint, to exchange the code by a token.
 func (i *IndieAuth) authorizationCodeExchange(w http.ResponseWriter, r *http.Request, withToken bool) {
 	if err := r.ParseForm(); err != nil {
-		handlers.SendErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
+		SendErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
 	// t := s.getAuthorization(r.Form.Get("code"))
 	req, present := storage.AuthCache().GetAndDelete(r.Form.Get("code"))
 	if !present {
-		handlers.SendErrorJSON(w, http.StatusBadRequest, "invalid_request", "invalid authorization")
+		SendErrorJSON(w, http.StatusBadRequest, "invalid_request", "invalid authorization")
 		return
 	}
 	authRequest := req.Value()
 
 	err := i.Server.ValidateTokenExchange(authRequest, r)
 	if err != nil {
-		handlers.SendErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
+		SendErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
@@ -159,7 +159,7 @@ func (i *IndieAuth) authorizationCodeExchange(w http.ResponseWriter, r *http.Req
 
 	// An actual server may want to include the "profile" in the response if the
 	// scope "profile" is included.
-	handlers.SendJSON(w, http.StatusOK, response)
+	SendJSON(w, http.StatusOK, response)
 }
 
 func (i *IndieAuth) HandleAuthApproval(w http.ResponseWriter, r *http.Request) {
@@ -168,7 +168,7 @@ func (i *IndieAuth) HandleAuthApproval(w http.ResponseWriter, r *http.Request) {
 	// whether temporary or not, cookies, etc.
 	req, err := i.Server.ParseAuthorization(r)
 	if err != nil {
-		handlers.SendErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
+		SendErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
@@ -192,7 +192,7 @@ func MustAuth(next http.Handler) http.Handler {
 		tokenStr = strings.TrimSpace(tokenStr)
 
 		if len(tokenStr) <= 0 {
-			handlers.SendErrorJSON(w, http.StatusUnauthorized, "invalid_request", "no credentials")
+			SendErrorJSON(w, http.StatusUnauthorized, "invalid_request", "no credentials")
 			return
 		}
 
@@ -201,14 +201,14 @@ func MustAuth(next http.Handler) http.Handler {
 		})
 
 		if err != nil {
-			handlers.SendErrorJSON(w, http.StatusUnauthorized, "invalid_request", "invalid token")
+			SendErrorJSON(w, http.StatusUnauthorized, "invalid_request", "invalid token")
 			return
 		} else if claims, ok := token.Claims.(*CustomTokenClaims); ok {
 			ctx := context.WithValue(r.Context(), scopesContextKey, claims.Scopes)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		} else {
-			handlers.SendErrorJSON(w, http.StatusUnauthorized, "invalid_request", "malformed claims")
+			SendErrorJSON(w, http.StatusUnauthorized, "invalid_request", "malformed claims")
 			return
 		}
 	})
@@ -244,5 +244,18 @@ func MustBasicAuth(next http.Handler) http.Handler {
 
 		w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	})
+}
+
+func SendJSON(w http.ResponseWriter, code int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(data)
+}
+
+func SendErrorJSON(w http.ResponseWriter, code int, err, errDescription string) {
+	SendJSON(w, code, map[string]string{
+		"error":             err,
+		"error_description": errDescription,
 	})
 }
