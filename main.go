@@ -1,7 +1,7 @@
 package main
 
 //go:generate templ generate
-//go:generate deno run --allow-all npm:tailwindcss -o static/styles.css -c config/tailwind.config.js --minify
+//go:generate deno run --allow-all npm:tailwindcss -i config/main.css -o static/styles.css -c config/tailwind.config.js --minify
 
 import (
 	"os"
