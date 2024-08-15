@@ -1,40 +1,63 @@
 package pages
 
-import "github.com/puregarlic/space/models"
-import "fmt"
-import "encoding/json"
+import (
+  "encoding/json"
+  "bytes"
 
-func getPostPropertyValue(post *models.Post, name string) any {
-  props := make(map[string]any)
-  if err := json.Unmarshal(post.Properties, &props); err != nil {
+  "github.com/puregarlic/space/models"
+  "github.com/alecthomas/chroma/v2/formatters/html"
+  "github.com/alecthomas/chroma/v2/styles"
+  "github.com/alecthomas/chroma/v2/lexers"
+)
+
+func formatUnknownPost(post *models.Post) string {
+  style := styles.Get("rose-pine")
+  lexer := lexers.Get("json")
+  formatter := html.New(
+    html.TabWidth(2),
+  )
+
+  contents, err := json.MarshalIndent(post.Properties, "", "  ")
+  if err != nil {
     panic(err)
   }
 
-  return props[name]
+  iterator, err := lexer.Tokenise(nil, string(contents))
+
+  var buf bytes.Buffer
+  formatter.Format(&buf, style, iterator)
+
+  return buf.String()
 }
 
 templ Home(posts []*models.Post) {
-  <!DOCTYPE html>
-  <html>
-    <head>
-      <title>Micropub and IndieAuth Server Demo</title>
-      <link rel="authorization_endpoint" href="/authorization">
-      <link rel="token_endpoint" href="/token">
-      <link rel="micropub" href="/micropub">
-
-      // <link rel="stylesheet" href="/static/styles.css" />
-    </head>
-    <body>
-      <h1>Micropub and IndieAuth Server Demo</h1>
-
-      <h2>Posts</h2>
-
-      <p>You can create posts using a Micropub client.</p>
-      <ul>
-      for _, post := range posts {
-        <li><a href={ templ.URL("/posts/" + post.ID.String()) }>{ post.ID.String() }</a> - { fmt.Sprint(getPostPropertyValue(post, "content")) }</li>
+  <div class="px-4 py-8 md:py-20 md:mx-auto md:max-w-screen-lg grid md:grid-cols-[1fr_2fr] gap-12 md:gap-16">
+    <aside class="min-w-0">
+      <h1 class="font-extrabold">puregarlic dot space</h1>
+      <p class="font-light mt-3 text-sm text-subtle">this space is mine, it was <a class="underline" href="https://github.com/puregarlic/space">made by me</a>!</p>
+    </aside>
+    <main class="min-w-0">
+      <ul class="flex flex-col gap-6">
+      if len(posts) > 0 {
+        for _, post := range posts {
+          <li>
+            <div class="mb-1 flex items-center justify-between text-muted text-xs">
+            	<p>{ post.CreatedAt.Format("01/02/2006 at 3:04 PM") }</p>
+              <p>oops, unimplemented!</p>
+            </div>
+            <a href={ templ.URL("/posts/" + post.ID.String()) } class="block p-4 bg-base overflow-x-scroll min-w-0">
+              @templ.Raw(formatUnknownPost(post))
+            </a>
+          </li>
+        }
+      } else {
+        <li class="text-highlightLow italic font-light bg-base p-4 text-center">
+          intention rich, content poor
+        </li>
       }
       </ul>
-    </body>
-  </html>
+    </main>
+  </div>
+
 }
+  

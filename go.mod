@@ -5,6 +5,7 @@ go 1.22.5
 require (
 	codeberg.org/gruf/go-ulid v1.1.0
 	github.com/aidarkhanov/nanoid v1.0.8
+	github.com/alecthomas/chroma/v2 v2.14.0
 	github.com/aws/aws-sdk-go-v2 v1.30.3
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-chi/cors v1.2.1
@@ -34,6 +35,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.30.3 // indirect
 	github.com/aws/smithy-go v1.20.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect

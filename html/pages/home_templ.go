@@ -8,17 +8,34 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/puregarlic/space/models"
-import "fmt"
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
 
-func getPostPropertyValue(post *models.Post, name string) any {
-	props := make(map[string]any)
-	if err := json.Unmarshal(post.Properties, &props); err != nil {
+	"github.com/alecthomas/chroma/v2/formatters/html"
+	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/alecthomas/chroma/v2/styles"
+	"github.com/puregarlic/space/models"
+)
+
+func formatUnknownPost(post *models.Post) string {
+	style := styles.Get("rose-pine")
+	lexer := lexers.Get("json")
+	formatter := html.New(
+		html.TabWidth(2),
+	)
+
+	contents, err := json.MarshalIndent(post.Properties, "", "  ")
+	if err != nil {
 		panic(err)
 	}
 
-	return props[name]
+	iterator, err := lexer.Tokenise(nil, string(contents))
+
+	var buf bytes.Buffer
+	formatter.Format(&buf, style, iterator)
+
+	return buf.String()
 }
 
 func Home(posts []*models.Post) templ.Component {
@@ -39,52 +56,54 @@ func Home(posts []*models.Post) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<!doctype html><html><head><title>Micropub and IndieAuth Server Demo</title><link rel=\"authorization_endpoint\" href=\"/authorization\"><link rel=\"token_endpoint\" href=\"/token\"><link rel=\"micropub\" href=\"/micropub\"></head><body><h1>Micropub and IndieAuth Server Demo</h1><h2>Posts</h2><p>You can create posts using a Micropub client.</p><ul>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"px-4 py-8 md:py-20 md:mx-auto md:max-w-screen-lg grid md:grid-cols-[1fr_2fr] gap-12 md:gap-16\"><aside class=\"min-w-0\"><h1 class=\"font-extrabold\">puregarlic dot space</h1><p class=\"font-light mt-3 text-sm text-subtle\">this space is mine, it was <a class=\"underline\" href=\"https://github.com/puregarlic/space\">made by me</a>!</p></aside><main class=\"min-w-0\"><ul class=\"flex flex-col gap-6\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, post := range posts {
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<li><a href=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
+		if len(posts) > 0 {
+			for _, post := range posts {
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<li><div class=\"mb-1 flex items-center justify-between text-muted text-xs\"><p>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var2 string
+				templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(post.CreatedAt.Format("01/02/2006 at 3:04 PM"))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `html/pages/home.templ`, Line: 45, Col: 64}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</p><p>oops, unimplemented!</p></div><a href=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var3 templ.SafeURL = templ.URL("/posts/" + post.ID.String())
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var3)))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\" class=\"block p-4 bg-base overflow-x-scroll min-w-0\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templ.Raw(formatUnknownPost(post)).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</a></li>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
-			var templ_7745c5c3_Var2 templ.SafeURL = templ.URL("/posts/" + post.ID.String())
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var2)))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var3 string
-			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(post.ID.String())
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `html/pages/home.templ`, Line: 35, Col: 82}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</a> - ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(getPostPropertyValue(post, "content")))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `html/pages/home.templ`, Line: 35, Col: 142}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</li>")
+		} else {
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<li class=\"text-highlightLow italic font-light bg-base p-4 text-center\">intention rich, content poor</li>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</ul></body></html>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</ul></main></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
