@@ -13,7 +13,7 @@ import (
 
 func ServeHomePage(w http.ResponseWriter, r *http.Request) {
 	posts := make([]*models.Post, 0)
-	result := storage.GORM().Limit(10).Find(&posts)
+	result := storage.GORM().Limit(10).Order("created_at DESC").Find(&posts)
 	if result.Error != nil {
 		panic(result.Error)
 	}
