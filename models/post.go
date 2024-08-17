@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 
+	"go.hacdias.com/indielib/microformats"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -10,8 +11,9 @@ import (
 type Post struct {
 	ID ULID `gorm:"primaryKey;unique"`
 
-	Type       string
-	Properties datatypes.JSON
+	Type            string
+	MicroformatType microformats.Type
+	Properties      datatypes.JSON
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

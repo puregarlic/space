@@ -21,6 +21,7 @@ import (
 	"github.com/h2non/filetype"
 	"github.com/samber/lo"
 
+	"go.hacdias.com/indielib/microformats"
 	"go.hacdias.com/indielib/micropub"
 )
 
@@ -102,10 +103,16 @@ func (m *Micropub) Create(req *micropub.Request) (string, error) {
 		return "", err
 	}
 
+	mfType, _ := microformats.DiscoverType(map[string]any{
+		"type":       req.Type,
+		"properties": req.Properties,
+	})
+
 	post := &models.Post{
-		ID:         models.NewULID(),
-		Type:       req.Type,
-		Properties: props,
+		ID:              models.NewULID(),
+		Type:            req.Type,
+		MicroformatType: mfType,
+		Properties:      props,
 	}
 
 	res := storage.GORM().Create(post)
