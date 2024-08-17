@@ -1,5 +1,6 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
+import { Config } from "npm:tailwindcss";
+
+export default {
   content: [
     "./html/**/*.templ",
   ],
@@ -29,4 +30,4 @@ module.exports = {
     },
   },
   plugins: [],
-};
+} as Config;

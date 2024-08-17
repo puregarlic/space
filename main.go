@@ -1,7 +1,7 @@
 package main
 
 //go:generate templ generate
-//go:generate deno run --allow-all npm:tailwindcss -i config/main.css -o static/styles.css -c config/tailwind.config.js --minify
+//go:generate deno run --allow-all npm:tailwindcss -i config/main.css -o static/styles.css -c config/tailwind.config.ts --minify
 
 import (
 	"os"
@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/puregarlic/space/handlers"
+	"github.com/puregarlic/space/models"
 	"github.com/puregarlic/space/storage"
 
 	"github.com/go-chi/chi/v5"
@@ -27,6 +28,8 @@ import (
 func main() {
 	port, profileURL := validateRuntimeConfiguration()
 	defer storage.CleanupAuthCache()
+
+	storage.GORM().AutoMigrate(&models.Post{})
 
 	r := chi.NewRouter()
 
