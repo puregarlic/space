@@ -9,7 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"go.hacdias.com/indielib/indieauth"
-	"go.hacdias.com/indielib/microformats"
 	"go.hacdias.com/indielib/micropub"
 )
 
@@ -40,18 +39,6 @@ func AttachMicropub(r chi.Router, path string, profileURL string) {
 	mpHandler := micropub.NewHandler(
 		mp,
 		micropub.WithMediaEndpoint(profileURL+"micropub/media"),
-		micropub.WithGetPostTypes(func() []micropub.PostType {
-			return []micropub.PostType{
-				{
-					Name: "Post",
-					Type: string(microformats.TypeNote),
-				},
-				{
-					Name: "Photo",
-					Type: string(microformats.TypePhoto),
-				},
-			}
-		}),
 	)
 
 	r.Route(path, func(r chi.Router) {
