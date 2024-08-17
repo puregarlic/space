@@ -1,0 +1,56 @@
+package posts
+
+import (
+  "bytes"
+  "encoding/json"
+
+  "github.com/puregarlic/space/models"
+
+  "github.com/alecthomas/chroma/v2/formatters/html"
+  "github.com/alecthomas/chroma/v2/styles"
+  "github.com/alecthomas/chroma/v2/lexers"
+)
+
+var style = styles.Get("rose-pine")
+var lexer = lexers.Get("json")
+var formatter = html.New(html.TabWidth(2), html.WithClasses(true))
+
+var dedupeSyntaxStyles = templ.NewOnceHandle()
+
+func renderPostAsJSON(post *models.Post) string {
+  contents, err := json.MarshalIndent(post.Properties, "", "  ")
+  if err != nil {
+    panic(err)
+  }
+
+  iterator, err := lexer.Tokenise(nil, string(contents))
+
+  var buf bytes.Buffer
+  formatter.Format(&buf, style, iterator)
+
+  return buf.String()
+}
+
+func generateSyntaxClassNames() string {
+  var buf bytes.Buffer
+  if err := formatter.WriteCSS(&buf, style); err != nil {
+    panic(err)
+  }
+  
+  return "<style>"+buf.String()+"</style>"
+}
+
+templ syntaxStyleTag() {
+  @templ.Raw(generateSyntaxClassNames())
+}
+
+templ Unsupported(post *models.Post) {
+  <div
+    class="block p-4 bg-base overflow-x-scroll min-w-0"
+  >
+    @dedupeSyntaxStyles.Once() {
+        @syntaxStyleTag()
+    }
+    @templ.Raw(renderPostAsJSON(post))
+  </div>
+}

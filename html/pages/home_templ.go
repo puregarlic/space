@@ -9,34 +9,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"bytes"
-	"encoding/json"
-
-	"github.com/alecthomas/chroma/v2/formatters/html"
-	"github.com/alecthomas/chroma/v2/lexers"
-	"github.com/alecthomas/chroma/v2/styles"
+	p "github.com/puregarlic/space/html/components/posts"
 	"github.com/puregarlic/space/models"
 )
-
-func formatUnknownPost(post *models.Post) string {
-	style := styles.Get("rose-pine")
-	lexer := lexers.Get("json")
-	formatter := html.New(
-		html.TabWidth(2),
-	)
-
-	contents, err := json.MarshalIndent(post.Properties, "", "  ")
-	if err != nil {
-		panic(err)
-	}
-
-	iterator, err := lexer.Tokenise(nil, string(contents))
-
-	var buf bytes.Buffer
-	formatter.Format(&buf, style, iterator)
-
-	return buf.String()
-}
 
 func Home(posts []*models.Post) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -56,49 +31,31 @@ func Home(posts []*models.Post) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"px-4 py-8 md:py-20 md:mx-auto md:max-w-screen-lg grid md:grid-cols-[1fr_2fr] gap-12 md:gap-16\"><aside class=\"min-w-0\"><h1 class=\"font-extrabold\">puregarlic dot space</h1><p class=\"font-light mt-3 text-sm text-subtle\">this space is mine, it was <a class=\"underline\" href=\"https://github.com/puregarlic/space\">made by me</a>!</p></aside><main class=\"min-w-0\"><ul class=\"flex flex-col gap-6\">")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"px-4 py-12 md:py-20 md:mx-auto md:max-w-screen-lg grid md:grid-cols-[1fr_2fr] gap-12 md:gap-16\"><aside class=\"min-w-0\"><div class=\"w-full md:sticky md:top-8\"><h1 class=\"font-extrabold text-xl\">puregarlic dot space</h1><p class=\"font-light mt-3 text-subtle italic md:text-sm\">this space is mine, it was <a class=\"underline hover:text-iris\" href=\"https://github.com/puregarlic/space\">made by me</a>!</p></div></aside><main class=\"min-w-0\"><ul class=\"flex flex-col gap-6 md:gap-12\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(posts) > 0 {
 			for _, post := range posts {
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<li><div class=\"mb-1 flex items-center justify-between text-muted text-xs\"><p>")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<li class=\"flex flex-col divide-y-2 divide-highlightLow group border-2 border-highlightLow\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var2 string
-				templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(post.CreatedAt.Format("01/02/2006 at 3:04 PM"))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `html/pages/home.templ`, Line: 45, Col: 64}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
+				templ_7745c5c3_Err = p.PostContent(post).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</p><p>oops, unimplemented!</p></div><a href=\"")
+				templ_7745c5c3_Err = p.PostFeedHeader(post).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var3 templ.SafeURL = templ.URL("/posts/" + post.ID.String())
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var3)))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\" class=\"block p-4 bg-base overflow-x-scroll min-w-0\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templ.Raw(formatUnknownPost(post)).Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</a></li>")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</li>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		} else {
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<li class=\"text-highlightLow italic font-light bg-base p-4 text-center\">intention rich, content poor</li>")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<li class=\"text-muted bg-surface px-4 py-8 text-center border border-highlightLow\">intention-rich, content-poor</li>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

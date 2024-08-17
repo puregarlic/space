@@ -1,0 +1,11 @@
+package posts
+
+import (
+  "github.com/puregarlic/space/models"
+)
+
+templ Note(post *models.Post) {
+  <div class="bg-surface p-4">
+  	{GetPostJSONProperty(post, "content")[0]}
+  </div>
+}

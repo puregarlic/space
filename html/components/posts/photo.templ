@@ -1,0 +1,20 @@
+package posts
+
+import (
+  "github.com/puregarlic/space/models"
+)
+
+templ Photo(post *models.Post) {
+  <div class="bg-base">
+  for index, photo := range GetPostJSONProperty(post, "photo") {
+    <figure class="relative group">
+    	<img class="w-full" src={photo} />
+      <figcaption
+        class="p-4 absolute inset-x-0 bottom-0 opacity-100 group-hover:opacity-0 bg-surface/70 backdrop-blur transition"
+      >
+        {GetPostJSONProperty(post, "content")[index]}
+      </figcaption>
+    </figure>
+  }
+  </div>
+}

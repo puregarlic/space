@@ -1,0 +1,76 @@
+package posts
+
+import (
+  "fmt"
+	"encoding/json"
+
+  "github.com/puregarlic/space/models"
+
+  "github.com/samber/lo"
+	"go.hacdias.com/indielib/microformats"
+)
+
+var ImplementedPostTypes = []microformats.Type{
+  microformats.TypeNote,
+  microformats.TypePhoto,
+}
+
+func GetPostJSONProperty(post *models.Post, name string) []string {
+  var tmp map[string]any
+  if err := json.Unmarshal(post.Properties, &tmp); err != nil {
+    panic(err)
+  }
+
+  prop, ok := tmp[name]
+  if !ok {
+    return []string{""}
+  }
+
+  var out []string
+  for _, val := range prop.([]any) {
+    out = append(out, val.(string))
+  }
+
+  return out
+}
+
+func formatPostTypeName(mfType microformats.Type) string {
+  has := lo.ContainsBy(ImplementedPostTypes, func(postType microformats.Type) bool {
+    return postType == mfType
+  })
+
+  if has {
+    return string(mfType)
+  } else {
+    return fmt.Sprintf("oops! (%s)", string(mfType))
+  }
+}
+
+templ PostFeedHeader(post *models.Post) {
+  <div class="px-3 py-2 bg-base text-xs text-subtle/50 group-hover:text-subtle/100 flex justify-between transition">
+    <p>{ formatPostTypeName(post.MicroformatType) }</p>
+    <a
+      class="hover:underline hover:text-iris flex gap-1"
+      target="_blank"
+      rel="noopener noreferrer"
+      href={ templ.URL("/posts/" + post.ID.String()) }
+    >
+    	{ post.CreatedAt.Format("01/02/2006 at 3:04 PM") }
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4 -mt-px">
+        <path d="M6.22 8.72a.75.75 0 0 0 1.06 1.06l5.22-5.22v1.69a.75.75 0 0 0 1.5 0v-3.5a.75.75 0 0 0-.75-.75h-3.5a.75.75 0 0 0 0 1.5h1.69L6.22 8.72Z" />
+        <path d="M3.5 6.75c0-.69.56-1.25 1.25-1.25H7A.75.75 0 0 0 7 4H4.75A2.75 2.75 0 0 0 2 6.75v4.5A2.75 2.75 0 0 0 4.75 14h4.5A2.75 2.75 0 0 0 12 11.25V9a.75.75 0 0 0-1.5 0v2.25c0 .69-.56 1.25-1.25 1.25h-4.5c-.69 0-1.25-.56-1.25-1.25v-4.5Z" />
+      </svg>
+    </a>
+  </div>
+}
+
+templ PostContent(post *models.Post) {
+  switch post.MicroformatType {
+    case microformats.TypePhoto:
+      @Photo(post)
+    case microformats.TypeNote:
+      @Note(post)
+    default:
+      @Unsupported(post)
+  }
+}
