@@ -1,56 +1,53 @@
 package pages
 
-import "strings"
+import (
+  "strings"
+  "go.hacdias.com/indielib/indieauth"
+)
 
-import "go.hacdias.com/indielib/indieauth"
+templ Auth( req *indieauth.AuthenticationRequest, app *indieauth.ApplicationMetadata, nonceId string, nonce string ) {
+  <h1>IndieAuth Server Demo: Authorization</h1>
 
-templ Auth( req *indieauth.AuthenticationRequest, app *indieauth.ApplicationMetadata ) {
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Authorization | Micropub and IndieAuth Server Demo</title>
-  </head>
-  <body>
-    <h1>IndieAuth Server Demo: Authorization</h1>
+  <p>
+    You received an authorization request from
 
-    <p>
-      You received an authorization request from
-
-      if app != nil {
-        if len(app.Logo) > 0 {
-          <img style="width: 1em; vertical-align: middle" src={ app.Logo } />
-        }
-
-        <strong>{ app.Name }</strong> by { app.Author }:
-      } else {
-        the following client:
+    if app != nil {
+      if len(app.Logo) > 0 {
+        <img style="width: 1em; vertical-align: middle" src={ app.Logo } />
       }
-    </p>
 
-    <ul>
-      <li><strong>Redirect:</strong> <code>{ req.ClientID }</code></li>
-      <li><strong>Client:</strong> <code>{ req.RedirectURI }</code></li>
-    </ul>
+      <strong>{ app.Name }</strong> by { app.Author }:
+    } else {
+      the following client:
+    }
+  </p>
 
-    <p>For the following scopes:
-      for _, scope := range req.Scopes {
-        <code>{ scope }</code>
-      }
-    .</p>
+  <ul>
+    <li><strong>Redirect:</strong> <code>{ req.ClientID }</code></li>
+    <li><strong>Client:</strong> <code>{ req.RedirectURI }</code></li>
+  </ul>
 
-    <form method='post' action='/authorization/accept'>
-      <input type="hidden" name="response_type" value="code">
-      <input type="hidden" name="scope" value={ strings.Join(req.Scopes, " ") }>
-      <input type="hidden" name="redirect_uri" value={ req.RedirectURI }>
-      <input type="hidden" name="client_id" value={ req.ClientID }>
-      <input type="hidden" name="state" value={ req.State }>
-      <input type="hidden" name="code_challenge" value={ req.CodeChallenge }>
-      <input type="hidden" name="code_challenge_method" value={ req.CodeChallengeMethod }>
+  <p>For the following scopes:
+    for _, scope := range req.Scopes {
+      <code>{ scope }</code>
+    }
+  .</p>
 
-      <p>In a production server, this page could be behind some sort of authentication mechanism, such as username and password, PassKey, etc.</p>
+  <form method='post' action='/authorization/accept'>
+    <input type="hidden" name="response_type" value="code"/>
+    <input type="hidden" name="scope" value={ strings.Join(req.Scopes, " ") }/>
+    <input type="hidden" name="redirect_uri" value={ req.RedirectURI }/>
+    <input type="hidden" name="client_id" value={ req.ClientID }/>
+    <input type="hidden" name="state" value={ req.State }/>
+    <input type="hidden" name="code_challenge" value={ req.CodeChallenge }/>
+    <input type="hidden" name="code_challenge_method" value={ req.CodeChallengeMethod }/>
 
-      <button id="submit">Authorize</button>
-    </form>
-  </body>
-</html>
+    // CSRF protections
+    <input type="hidden" name="nonce_id" value={ nonceId }/>
+    <input type="hidden" name="nonce" value={ nonce }/>
+
+    <p>In a production server, this page could be behind some sort of authentication mechanism, such as username and password, PassKey, etc.</p>
+
+    <button id="submit">Authorize</button>
+  </form>
 }

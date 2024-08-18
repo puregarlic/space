@@ -27,7 +27,7 @@ import (
 
 func main() {
 	port, profileURL := validateRuntimeConfiguration()
-	defer storage.CleanupAuthCache()
+	defer storage.CleanupCaches()
 
 	storage.GORM().AutoMigrate(&models.Post{})
 

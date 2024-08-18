@@ -26,8 +26,6 @@ type IndieAuth struct {
 	Server     *indieauth.Server
 }
 
-// storeAuthorization stores the authorization request and returns a code for it.
-// Something such as JWT tokens could be used in a production environment.
 func (i *IndieAuth) storeAuthorization(req *indieauth.AuthenticationRequest) string {
 	code := nanoid.New()
 
@@ -47,38 +45,25 @@ const (
 	scopesContextKey contextKey = "scopes"
 )
 
-// HandleAuthGET handles the GET method for the authorization endpoint.
 func (i *IndieAuth) HandleAuthGET(w http.ResponseWriter, r *http.Request) {
-	// In a production server, this page would usually be protected. In order for
-	// the user to authorize this request, they must be authenticated. This could
-	// be done in different ways: username/password, passkeys, etc.
-
-	// Parse the authorization request.
 	req, err := i.Server.ParseAuthorization(r)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
-	// Do a best effort attempt at fetching more information about the application
-	// that we can show to the user. Not all applications provide this sort of
-	// information.
 	app, _ := i.Server.DiscoverApplicationMetadata(r.Context(), req.ClientID)
 
-	// Here, we just display a small HTML document where the user has to press
-	// to authorize this request. Please note that this template contains a form
-	// where we dump all the request information. This makes it possible to reuse
-	// [indieauth.Server.ParseAuthorization] when the user authorizes the request.
-	layouts.RenderDefault(pages.Auth(req, app)).ServeHTTP(w, r)
+	nonceId, nonce := nanoid.New(), nanoid.New()
+	storage.NonceCache().Set(nonceId, nonce, 0)
+
+	layouts.RenderDefault(pages.Auth(req, app, nonceId, nonce)).ServeHTTP(w, r)
 }
 
-// HandleAuthPOST handles the POST method for the authorization endpoint.
 func (i *IndieAuth) HandleAuthPOST(w http.ResponseWriter, r *http.Request) {
 	i.authorizationCodeExchange(w, r, false)
 }
 
-// HandleToken handles the token endpoint. In our case, we only accept the default
-// type which is exchanging an authorization code for a token.
 func (i *IndieAuth) HandleToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
@@ -103,9 +88,6 @@ type tokenResponse struct {
 	ExpiresIn   int64  `json:"expires_in,omitempty"`
 }
 
-// authorizationCodeExchange handles the authorization code exchange. It is used by
-// both the authorization handler to exchange the code for the user's profile URL,
-// and by the token endpoint, to exchange the code by a token.
 func (i *IndieAuth) authorizationCodeExchange(w http.ResponseWriter, r *http.Request, withToken bool) {
 	if err := r.ParseForm(); err != nil {
 		SendErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
@@ -163,17 +145,22 @@ func (i *IndieAuth) authorizationCodeExchange(w http.ResponseWriter, r *http.Req
 }
 
 func (i *IndieAuth) HandleAuthApproval(w http.ResponseWriter, r *http.Request) {
-	// Parse authorization information. This only works because our authorization page
-	// includes all the required information. This can be done in other ways: database,
-	// whether temporary or not, cookies, etc.
+	id := r.FormValue("nonce_id")
+	nonce := r.FormValue("nonce")
+
+	stored, ok := storage.NonceCache().GetAndDelete(id)
+	if !ok {
+		SendErrorJSON(w, http.StatusBadRequest, "bad_request", "nonce does not match")
+	} else if stored.Value() != nonce {
+		SendErrorJSON(w, http.StatusBadRequest, "bad_request", "nonce does not match")
+	}
+
 	req, err := i.Server.ParseAuthorization(r)
 	if err != nil {
 		SendErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
-	// Generate a random code and persist the information associated to that code.
-	// You could do this in other ways: database, or JWT tokens, or both, for example.
 	code := i.storeAuthorization(req)
 
 	// Redirect to client callback.
@@ -183,8 +170,6 @@ func (i *IndieAuth) HandleAuthApproval(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, req.RedirectURI+"?"+query.Encode(), http.StatusFound)
 }
 
-// MustAuth is a middleware to ensure that the request is authorized. The way this
-// works depends on the implementation. It then stores the scopes in the context.
 func MustAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := r.Header.Get("Authorization")
