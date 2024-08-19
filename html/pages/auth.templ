@@ -6,32 +6,44 @@ import (
 )
 
 templ Auth( req *indieauth.AuthenticationRequest, app *indieauth.ApplicationMetadata, nonceId string, nonce string ) {
-  <h1>IndieAuth Server Demo: Authorization</h1>
+<div class="px-4 py-12 md:py-20 mx-auto max-w-screen-sm">
+  <p class="text-sm font-thin italic">authorize access to</p>
+  <h1 class="mb-8 text-3xl font-extrabold">puregarlic dot space</h1>
 
-  <p>
-    You received an authorization request from
-
+  <div class="pt-6 border border-highlightMed rounded bg-surface">
     if app != nil {
-      if len(app.Logo) > 0 {
-        <img style="width: 1em; vertical-align: middle" src={ app.Logo } />
-      }
+      <div class="px-6 flex gap-6 items-center">
+        if len(app.Logo) > 0 {
+          <img class="max-w-12" src={ app.Logo } />
+        }
 
-      <strong>{ app.Name }</strong> by { app.Author }:
+        <div>
+	        <h2 class="font-bold text-lg">{ app.Name }</h2>
+
+          if len(app.Author) > 0 {
+            <p class="text-sm font-light">by {app.Author}</p>
+          }
+        </div>
+      </div>
     } else {
-      the following client:
+      <h2 class="px-6 font-bold text-subtle">unidentified client</h2>
     }
-  </p>
 
-  <ul>
-    <li><strong>Redirect:</strong> <code>{ req.ClientID }</code></li>
-    <li><strong>Client:</strong> <code>{ req.RedirectURI }</code></li>
-  </ul>
+    <div class="mt-6 grid md:grid-cols-[max-content_1fr] *:border-highlightMed">
+      <h3 class="px-6 pt-4 pb-2 md:py-4 border-t bg-overlay md:border-r text-subtle font-bold">Client ID</h3>
+      <p class="px-6 pb-4 pt-1 md:py-4 md:border-t bg-overlay min-w-0 overflow-x-scroll">{ req.ClientID }</p>
 
-  <p>For the following scopes:
-    for _, scope := range req.Scopes {
-      <code>{ scope }</code>
-    }
-  .</p>
+      <h3 class="px-6 pt-4 pb-2 md:py-4 border-t md:border-b md:border-r text-subtle font-bold">Redirect URL</h3>
+      <p class="px-6 pb-4 pt-1 md:py-4 md:border-y min-w-0 overflow-x-scroll">{ req.RedirectURI}</p>
+
+      <h3 class="px-6 pt-4 pb-2 md:py-4 border-t bg-overlay md:border-r text-subtle font-bold">Scopes</h3>
+      <ul class="px-6 pb-4 pt-1 md:py-4 bg-overlay flex flex-wrap gap-3">
+        for _, scope := range req.Scopes {
+          <li class="px-2 py-1 text-sm bg-pine rounded">{ scope }</li>
+        }
+      </ul>
+    </div>
+  </div>
 
   <form method='post' action='/authorization/accept'>
     <input type="hidden" name="response_type" value="code"/>
@@ -46,8 +58,15 @@ templ Auth( req *indieauth.AuthenticationRequest, app *indieauth.ApplicationMeta
     <input type="hidden" name="nonce_id" value={ nonceId }/>
     <input type="hidden" name="nonce" value={ nonce }/>
 
-    <p>In a production server, this page could be behind some sort of authentication mechanism, such as username and password, PassKey, etc.</p>
-
-    <button id="submit">Authorize</button>
+    <button
+      class="mt-8 px-3 py-2 flex items-center justify-center gap-2 bg-surface border border-highlightMed text-sm font-bold transition rounded hover:bg-foam hover:text-surface"
+      id="submit"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4">
+        <path fill-rule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm3.844-8.791a.75.75 0 0 0-1.188-.918l-3.7 4.79-1.649-1.833a.75.75 0 1 0-1.114 1.004l2.25 2.5a.75.75 0 0 0 1.15-.043l4.25-5.5Z" clip-rule="evenodd" />
+      </svg>
+      Authorize
+    </button>
   </form>
+  </div>
 }
