@@ -57,7 +57,7 @@ func (i *IndieAuth) HandleAuthGET(w http.ResponseWriter, r *http.Request) {
 	nonceId, nonce := nanoid.New(), nanoid.New()
 	storage.NonceCache().Set(nonceId, nonce, 0)
 
-	layouts.RenderDefault(pages.Auth(req, app, nonceId, nonce)).ServeHTTP(w, r)
+	layouts.RenderDefault("authorize", pages.Auth(req, app, nonceId, nonce)).ServeHTTP(w, r)
 }
 
 func (i *IndieAuth) HandleAuthPOST(w http.ResponseWriter, r *http.Request) {

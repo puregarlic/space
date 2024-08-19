@@ -18,7 +18,7 @@ func ServeHomePage(w http.ResponseWriter, r *http.Request) {
 		panic(result.Error)
 	}
 
-	layouts.RenderDefault(pages.Home(posts)).ServeHTTP(w, r)
+	layouts.RenderDefault("", pages.Home(posts)).ServeHTTP(w, r)
 }
 
 func ServePostPage(w http.ResponseWriter, r *http.Request) {
@@ -32,5 +32,5 @@ func ServePostPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	layouts.RenderDefault(pages.Post(post)).ServeHTTP(w, r)
+	layouts.RenderDefault(string(post.MicroformatType), pages.Post(post)).ServeHTTP(w, r)
 }
