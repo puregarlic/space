@@ -1,0 +1,21 @@
+package components
+
+import "github.com/puregarlic/space/storage"
+
+templ Head(title string) {
+	<head>
+		if len(title) > 0 {
+			<title>{ title } | puregarlic dot space</title>
+		} else {
+			<title>puregarlic dot space</title>
+		}
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<link rel="preconnect" href="https://fonts.googleapis.com"/>
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+		<link href="https://fonts.googleapis.com/css2?family=Recursive:slnt,wght,CASL,CRSV,MONO@-15..0,300..1000,0..1,0..1,0..1&display=swap" rel="stylesheet"/>
+		for _, rel := range storage.GetRels() {
+			<link rel={ rel.Name } href={ rel.HREF }/>
+		}
+		<link rel="stylesheet" href="/static/styles.css"/>
+	</head>
+}

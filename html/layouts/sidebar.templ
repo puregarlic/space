@@ -1,0 +1,29 @@
+package layouts
+
+import (
+	"github.com/puregarlic/space/html/components"
+	"net/http"
+)
+
+func RenderWithSidebar(title string, body templ.Component) http.Handler {
+	page := WithSidebar(title, body)
+
+	return templ.Handler(page)
+}
+
+templ WithSidebar(title string, body templ.Component) {
+	<!DOCTYPE html>
+	<html>
+		@components.Head(title)
+		<body class="px-4 py-12 md:py-20 text-text bg-base">
+			<div class="mx-auto max-w-screen-lg grid md:grid-cols-[1fr_2fr] gap-12 gap-16">
+				<aside class="min-w-0">
+					@components.Sidebar()
+				</aside>
+				<main class="min-w-0">
+					@body
+				</main>
+			</div>
+		</body>
+	</html>
+}

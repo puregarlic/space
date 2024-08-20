@@ -1,37 +1,22 @@
 package layouts
 
-import "net/http"
-import "github.com/puregarlic/space/storage"
+import (
+	"github.com/puregarlic/space/html/components"
+	"net/http"
+)
 
 func RenderDefault(title string, page templ.Component) http.Handler {
-  rels := storage.GetRels()
-  document := Default(title, page, rels)
+	document := Default(title, page)
 
-  return templ.Handler(document)
+	return templ.Handler(document)
 }
 
-templ Default(title string, body templ.Component, rels []*storage.RelEntry) {
-  <!DOCTYPE html>
-  <html>
-    <head>
-      if len(title) > 0 {
-        <title>{title} | puregarlic dot space</title>
-      } else {
-        <title>puregarlic dot space</title>
-      }
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-      <link href="https://fonts.googleapis.com/css2?family=Recursive:slnt,wght,CASL,CRSV,MONO@-15..0,300..1000,0..1,0..1,0..1&display=swap" rel="stylesheet">
-
-      for _, rel := range rels {
-        <link rel={ rel.Name } href={ rel.HREF } />
-      }
-
-      <link rel="stylesheet" href="/static/styles.css" />
-    </head>
-    <body class="text-text bg-base">
-      @body
-    </body>
-  </html>
+templ Default(title string, body templ.Component) {
+	<!DOCTYPE html>
+	<html>
+		@components.Head(title)
+		<body class="px-4 py-12 md:py-20 text-text bg-base">
+			@body
+		</body>
+	</html>
 }

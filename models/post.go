@@ -19,3 +19,7 @@ type Post struct {
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
+
+func (p *Post) Timestamp() string {
+	return p.CreatedAt.Format("01/02/2006 at 3:04 PM")
+}
