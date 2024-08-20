@@ -26,7 +26,7 @@ func Sidebar() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templ.WriteWatchModeString(templ_7745c5c3_Buffer, 1)
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<aside class=\"min-w-0\"><div class=\"w-full md:sticky md:top-8\"><h1 class=\"font-extrabold text-xl\">puregarlic dot space</h1><p class=\"font-light mt-3 text-subtle italic md:text-sm\">this space is mine, it was <a class=\"underline hover:text-iris\" href=\"https://github.com/puregarlic/space\">made by me</a>!</p></div></aside>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
