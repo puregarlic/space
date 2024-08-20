@@ -4,5 +4,6 @@ node_modules
 
 data/**/*.db
 tmp/
+*_templ.txt
 
 static/styles.css
