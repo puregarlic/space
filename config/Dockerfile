@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . /app
 
-RUN deno run --allow-all npm:@tailwindcss/cli -i config/main.css -o static/styles.css -c config/tailwind.config.ts --minify
+RUN deno run --allow-all npm:tailwindcss@3.4.17 -i config/main.css -o static/styles.css -c config/tailwind.config.ts --minify
 
 FROM golang:1.24-alpine AS build-server
 WORKDIR /app
