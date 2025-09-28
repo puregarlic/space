@@ -1,12 +1,12 @@
 # Build styles
-FROM denoland/deno:1.45.5 AS build-styles
+FROM denoland/deno:2.5.2 AS build-styles
 WORKDIR /app
 
 COPY . /app
 
 RUN deno run --allow-all npm:@tailwindcss/cli -i config/main.css -o static/styles.css -c config/tailwind.config.ts --minify
 
-FROM golang:1.22-alpine AS build-server
+FROM golang:1.24-alpine AS build-server
 WORKDIR /app
 
 COPY . /app
